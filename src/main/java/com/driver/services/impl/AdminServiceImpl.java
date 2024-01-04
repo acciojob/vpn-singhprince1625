@@ -1,32 +1,66 @@
 package com.driver.services.impl;
-
-import com.driver.repository.AdminRepository;
+import com.driver.model.*;
 import com.driver.repository.CountryRepository;
 import com.driver.repository.ServiceProviderRepository;
-import com.driver.services.AdminService;
+import com.driver.repository.UserRepository;
+import com.driver.services.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import java.util.*;
 
 @Service
-public class AdminServiceImpl implements AdminService {
-    @Autowired
-    AdminRepository adminRepository1;
+public class UserServiceImpl implements UserService {
 
     @Autowired
-    ServiceProviderRepository serviceProviderRepository1;
-
+    UserRepository userRepository3;
     @Autowired
-    CountryRepository countryRepository1;
+    ServiceProviderRepository serviceProviderRepository3;
+    @Autowired
+    CountryRepository countryRepository3;
 
     @Override
-    public Admin register(String username, String password) {
+    public User register(String username, String password, String countryName) throws Exception {
+        User user=new User();
+        user.setUsername(username);
+        user.setPassword(password);
+        user.setConnected(false);
+        Country country=new Country();
+        try{
+            country.enrich(countryName);
+        }catch(Exception e){
+            throw new Exception("Country not found");
+        }
+        //set fk variable
+        country.setUser(user);
+        user.setOriginalCountry(country);
+
+        user=userRepository3.save(user); //this is for user id assign
+        user.setOriginalIp(new String(user.getOriginalCountry().getCode()+"."+user.getId()));
+
+        //bidirectional mapping here
+        return userRepository3.save(user);
     }
 
     @Override
-    public Admin addServiceProvider(int adminId, String providerName) {
-    }
+    public User subscribe(Integer userId, Integer serviceProviderId) {
+        //all validation check
 
-    @Override
-    public ServiceProvider addCountry(int serviceProviderId, String countryName) throws Exception{
+        User user=userRepository3.findById(userId).get();
+        ServiceProvider serviceProvider=serviceProviderRepository3.findById(serviceProviderId).get();
+
+        List<ServiceProvider>serviceProviderList=user.getServiceProviderList();
+        List<User>userList=serviceProvider.getUsers();
+
+        serviceProviderList.add(serviceProvider);
+        userList.add(user);
+        //fk set
+        user.setServiceProviderList(serviceProviderList); // user fk set
+
+        //bidirectional mapping
+        serviceProviderRepository3.save(serviceProvider);
+        serviceProvider.setUsers(userList); //service provider fk set
+        //bidirectional saving
+        serviceProviderRepository3.save(serviceProvider);
+        return user;
     }
 }
